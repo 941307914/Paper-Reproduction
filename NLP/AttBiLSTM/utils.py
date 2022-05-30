@@ -7,11 +7,23 @@ import numpy as np
 
 from gensim.models.word2vec import Word2Vec
 from gensim.models.keyedvectors import KeyedVectors
+import matplotlib.pyplot as plt
+import itertools
+import jieba    
+
+### 创建一个关于sentences的迭代对象，返回的是一个生成器
+class genrate_sentence(object):
+    def __init__(self,sentences):
+        self.sentences = sentences
+
+    def __iter__(self):
+        for item in self.sentences:
+            yield item
 
 
 ### 训练word2vec模型
 def train_word2vec(sentences: list, embedding_dim: int, model_save_path: str,
-                     window_size: int = 5, min_count: int = 5,
+                     window_size: int = 5, min_count: int = 15,
                         workers: int = 4, sg: int = 1, iter: int = 5,
                         negative: int = 5, cbow_mean: bool = 1,
                         hs: bool = 1, sample: float = 1e-3,
@@ -58,62 +70,46 @@ def train_word2vec(sentences: list, embedding_dim: int, model_save_path: str,
         Word2id map
     """
     print("\nTraining Word2Vec model...")
-    model = Word2Vec(sentences, size=embedding_dim, window=window_size,
-                        min_count=min_count, workers=workers, sg=sg,
-                        iter=iter, negative=negative, cbow_mean=cbow_mean,
-                        hs=hs, sample=sample, seed=seed)
+    sentencess = genrate_sentence(sentences)
+    model = Word2Vec(sentencess, vector_size=embedding_dim, window=window_size,
+                        min_count=min_count)
     model.save(model_save_path)
-    word_map = {word: i for i, word in enumerate(model.wv.index2word)}
-    return model, word_map
+
+    return model
 
 
-### genism读取w2v数据
-def load_word2vec_format(path: str, binary: bool = False) -> Tuple[KeyedVectors, Dict[str, int]]:
-    """
-    Load a word2vec model in word2vec format
-    Parameters
-    ----------
-    path : str
-        Path to the word2vec model
-    binary : bool
-        If true, the model is in binary format
-    Returns
-    -------
-    model : KeyedVectors
-        Trained word2vec model
-    word_map : Dict[str, int]
-        Word2id map
-    """
+
+
+### 加载模型
+def load_word2vec_format(path: str):
     print("\nLoading Word2Vec model...")
-    model = KeyedVectors.load_word2vec_format(path, binary=binary)
-    word_map = {word: i for i, word in enumerate(model.index2word)}
-    return model, word_map
+    model = KeyedVectors.load(path)
 
-### 创建利用word2vc创建embedding层
-def create_embedding_layer(model: KeyedVectors, word_map: Dict[str, int],
-                            embedding_dim: int, device: torch.device) -> nn.Embedding:
-    """
-    Create an embedding layer
-    Parameters
-    ----------
-    model : KeyedVectors
-        Trained word2vec model
-    word_map : Dict[str, int]
-        Word2ix map
-    embedding_dim : int
-        Dimension of the embedding vectors
-    device : torch.device
-        Device to create the embedding layer on
-    Returns
-    -------
-    embedding_layer : nn.Embedding
-        Embedding layer
-    """
-    embedding_layer = nn.Embedding(len(word_map), embedding_dim)
-    embedding_layer.weight.data.copy_(torch.from_numpy(model.vectors))
-    embedding_layer.weight.requires_grad = False
-    embedding_layer = embedding_layer.to(device)
-    return embedding_layer
+    return model
+
+
+
+#对输入数据进行预处理,主要是对句子用索引表示且对句子进行截断与padding，将填充使用”pad_word“来。
+def tokenizer(pd_all,pad_word,word2idx,sequence_length):   # 分词
+    pad_id = word2idx[pad_word]
+    inputs = []
+    sentence_char = [list(jieba.cut(item)) for item in pd_all["review"].astype(str)]    
+    # 将输入文本进行padding
+    for index,item in enumerate(sentence_char):
+        ### 若查找不存在，则返回第二个参数设置的默认值
+        temp=[word2idx.get(item_item,pad_id) for item_item in item]#表示如果词表中没有这个稀有词，无法获得，那么就默认返回pad_id。
+        if(len(item)<sequence_length):
+            for _ in range(sequence_length-len(item)):
+                temp.append(pad_id)
+        else:
+            temp = temp[:sequence_length]
+        inputs.append(temp)
+    return inputs
+
+
+
+
+
 
 
 def save_checkpoint(
@@ -121,9 +117,9 @@ def save_checkpoint(
     model: nn.Module,
     model_name: str,
     optimizer: optim.Optimizer,
-    dataset_name: str,
-    word_map: Dict[str, int],
     checkpoint_path: str,
+    best_loss: float = None,
+    best_acc: float = None,
     checkpoint_basename: str = 'checkpoint'
 ) -> None:
     """
@@ -152,8 +148,8 @@ def save_checkpoint(
         'model': model,
         'model_name': model_name,
         'optimizer': optimizer,
-        'dataset_name': dataset_name,
-        'word_map': word_map
+        'best_loss': best_loss,
+        'best_acc': best_acc,
     }
     save_path = os.path.join(checkpoint_path, checkpoint_basename + '.pth.tar')
     torch.save(state, save_path)
