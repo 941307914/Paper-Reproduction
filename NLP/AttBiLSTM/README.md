@@ -10,10 +10,10 @@
 
 损失曲线
 
-![](../../../Picture/AttBiLSTM/loss_curve.png)
+![](../../Picture/AttBiLSTM/loss_curve.png)
 
 ROC曲线：
-![](../../../Picture/AttBiLSTM/ROC_curve.png)
+![](../../Picture/AttBiLSTM/ROC_curve.png)
 
 困惑矩阵
-![](../../../Picture/AttBiLSTM/Confusion_matrix.png)
+![](../../Picture/AttBiLSTM/Confusion_matrix.png)
