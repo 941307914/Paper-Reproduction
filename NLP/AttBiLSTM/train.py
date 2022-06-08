@@ -64,9 +64,7 @@ class Trainer:
         lr_decay: float,
         grad_clip = Optional[None],
         checkpoint_path: Optional[str] = None,
-        checkpoint_basename: str = 'checkpoint',
-        tensorboard: bool = False,
-        log_dir: Optional[str] = None
+        checkpoint_basename: str = 'checkpoint'
     ) -> None:
         self.num_epochs = num_epochs
         self.train_loader = train_loader
@@ -122,7 +120,8 @@ class Trainer:
             batch_x = Variable(batch_x).to(self.device)
             batch_y = Variable(batch_y).to(self.device)
             outputs = self.model(batch_x)
-            outputs = torch.sigmoid(outputs.squeeze(1))
+            outputs = outputs.squeeze(1)
+            outputs = torch.sigmoid(outputs)
             
             loss = self.loss_function(outputs, batch_y)
 
