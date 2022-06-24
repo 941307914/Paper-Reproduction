@@ -5,3 +5,4 @@
 ### NLP
 - TextCNN
 - AttBiLSTM
+- Word2vec
